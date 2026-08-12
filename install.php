@@ -31,7 +31,7 @@ try {
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = 'admin'");
     $stmt->execute();
     if ($stmt->rowCount() == 0) {
-        $defaultPasswordHash = '$2y$10$wT.fK8.JzG.9L1E.g1G4.OU3QJ/Z5.M.v/N/7QvL.C3J.H.p.T.W.'; // password: password
+        $defaultPasswordHash = '$2y$10$AIwlnkTND2R.UQPnx2Rlp.3ykSoorkWjEUVdedrPIs3BWZTz84YWS'; // password: password
         $insert = $pdo->prepare("INSERT INTO users (username, password) VALUES ('admin', :password)");
         $insert->execute([':password' => $defaultPasswordHash]);
         echo "<p>✅ Akun admin default berhasil dibuat (User: admin, Pass: password).</p>";
