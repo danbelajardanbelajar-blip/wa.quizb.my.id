@@ -18,15 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($_SESSION['csrf_token'], $csrf_token)) {
         $error = 'Invalid CSRF token.';
     } else {
-        $stmt = $pdo->prepare("SELECT id, username, password_hash, api_token FROM users WHERE username = :username LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE username = :username LIMIT 1");
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch();
 
-        if ($user && password_verify($password, $user['password_hash'])) {
+        if ($user && password_verify($password, $user['password'])) {
             // Login success
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
-            $_SESSION['api_token'] = $user['api_token'];
             
             // Regenerate session ID for security
             session_regenerate_id(true);
