@@ -23,6 +23,7 @@ if (!isset($_SESSION['user_id'])) {
         </div>
         <div class="flex items-center">
             <span class="text-white mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <button onclick="openSettingsModal()" class="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-cog"></i> Settings</button>
             <a href="logout.php" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm">Logout</a>
         </div>
     </div>
@@ -121,6 +122,35 @@ if (!isset($_SESSION['user_id'])) {
     </div>
 </div>
 
+<!-- FCM Settings Modal -->
+<div id="settingsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">FCM Configuration</h3>
+            <form id="settingsForm" onsubmit="saveSettings(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Firebase Server Key</label>
+                    <textarea id="fcmServerKey" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" rows="3" placeholder="AAAA..." required></textarea>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Android Device Token</label>
+                    <textarea id="fcmDeviceToken" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" rows="3" placeholder="c8xK..." required></textarea>
+                </div>
+                
+                <div class="items-center px-4 py-3 sm:flex sm:flex-row-reverse">
+                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                        Save
+                    </button>
+                    <button type="button" onclick="closeSettingsModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     let schedulesData = [];
 
@@ -135,6 +165,7 @@ if (!isset($_SESSION['user_id'])) {
     // Format status with color badge
     function getStatusBadge(status) {
         if (status === 'PENDING') return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">PENDING</span>';
+        if (status === 'PROCESSING') return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">PROCESSING</span>';
         if (status === 'COMPLETED') return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">COMPLETED</span>';
         if (status === 'FAILED') return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">FAILED</span>';
         return status;
@@ -284,6 +315,52 @@ if (!isset($_SESSION['user_id'])) {
 
     // Initialize
     loadSchedules();
+
+    // Settings handling
+    function openSettingsModal() {
+        document.getElementById('settingsModal').classList.remove('hidden');
+        loadSettings();
+    }
+
+    function closeSettingsModal() {
+        document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    async function loadSettings() {
+        try {
+            const res = await fetch('api/fcm_settings.php');
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('fcmServerKey').value = data.data.server_key;
+                document.getElementById('fcmDeviceToken').value = data.data.device_token;
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function saveSettings(e) {
+        e.preventDefault();
+        const payload = {
+            server_key: document.getElementById('fcmServerKey').value,
+            device_token: document.getElementById('fcmDeviceToken').value
+        };
+        try {
+            const res = await fetch('api/fcm_settings.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert('Settings saved successfully!');
+                closeSettingsModal();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Request failed');
+        }
+    }
 </script>
 
 </body>
