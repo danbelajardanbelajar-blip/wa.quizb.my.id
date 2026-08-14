@@ -2,9 +2,20 @@
 // cron.php - Run this via CronJob every minute
 require 'config/db.php';
 
+$log_file = __DIR__ . '/cron.log';
+function write_log($msg) {
+    global $log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    file_put_contents($log_file, "[$timestamp] $msg\n", FILE_APPEND);
+    echo "[$timestamp] $msg<br>\n";
+}
+
+write_log("Cron job started via " . ($_SERVER['REMOTE_ADDR'] ?? 'CLI'));
+
 $fcm_file = 'config/fcm.json';
 if (!file_exists($fcm_file)) {
-    die("FCM Config not found.");
+    write_log("FCM Config not found.");
+    exit;
 }
 
 $fcm_config = json_decode(file_get_contents($fcm_file), true);
@@ -12,7 +23,8 @@ $server_key = $fcm_config['server_key'] ?? '';
 $device_token = $fcm_config['device_token'] ?? '';
 
 if (empty($server_key) || empty($device_token)) {
-    die("FCM Server Key or Device Token is not set in Settings.");
+    write_log("FCM Server Key or Device Token is not set in Settings.");
+    exit;
 }
 
 // Get pending schedules where time has passed
@@ -24,7 +36,7 @@ $stmt->execute(['now' => $now]);
 $schedules = $stmt->fetchAll();
 
 if (empty($schedules)) {
-    echo "No pending schedules at this time ($now).\n";
+    write_log("No pending schedules at this time ($now).");
     exit;
 }
 
@@ -66,11 +78,11 @@ foreach ($schedules as $schedule) {
         $updateStmt = $pdo->prepare("UPDATE schedules SET status = 'PROCESSING' WHERE id = :id");
         $updateStmt->execute(['id' => $schedule['id']]);
         $success_count++;
-        echo "Successfully triggered push for Schedule ID: " . $schedule['id'] . "\n";
+        write_log("Successfully triggered push for Schedule ID: " . $schedule['id']);
     } else {
-        echo "Failed to trigger push for Schedule ID: " . $schedule['id'] . ". Result: " . $result . "\n";
+        write_log("Failed to trigger push for Schedule ID: " . $schedule['id'] . ". Result: " . $result);
     }
 }
 
-echo "Cron completed. Sent $success_count pushes.\n";
+write_log("Cron completed. Sent $success_count pushes.");
 ?>
