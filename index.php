@@ -38,9 +38,14 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
 <div class="container mx-auto mt-8 px-4">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-800">Message Schedules</h2>
-        <button onclick="openModal()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-            <i class="fas fa-plus mr-1"></i> Add Schedule
-        </button>
+        <div>
+            <button onclick="deleteSelected()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mr-2 hidden" id="bulkDeleteBtn">
+                <i class="fas fa-trash mr-1"></i> Delete Selected
+            </button>
+            <button onclick="openModal()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                <i class="fas fa-plus mr-1"></i> Add Schedule
+            </button>
+        </div>
     </div>
 
     <!-- Stats -->
@@ -68,6 +73,9 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         <table class="min-w-full leading-normal">
             <thead>
                 <tr>
+                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-10">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
+                    </th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sender</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
@@ -78,9 +86,19 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
                 </tr>
             </thead>
             <tbody id="schedules-tbody">
-                <tr><td colspan="7" class="px-5 py-5 text-center text-gray-500">Loading...</td></tr>
+                <tr><td colspan="8" class="px-5 py-5 text-center text-gray-500">Loading...</td></tr>
             </tbody>
         </table>
+        
+        <!-- Pagination controls -->
+        <div class="px-5 py-5 bg-white border-t flex flex-col xs:flex-row items-center xs:justify-between">
+            <span class="text-xs xs:text-sm text-gray-900" id="pagination-info">
+                Showing 0 to 0 of 0 Entries
+            </span>
+            <div class="inline-flex mt-2 xs:mt-0" id="pagination-controls">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
     </div>
 </div>
 
@@ -111,6 +129,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
                     <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select id="scheduleStatus" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
                         <option value="PENDING">PENDING</option>
+                        <option value="PROCESSING">PROCESSING</option>
                         <option value="COMPLETED">COMPLETED</option>
                         <option value="FAILED">FAILED</option>
                     </select>
@@ -160,6 +179,8 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
 
 <script>
     let schedulesData = [];
+    let currentPage = 1;
+    let itemsPerPage = 10;
 
     // Format date string to local input format
     function formatForInput(dateString) {
@@ -209,14 +230,30 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         tbody.innerHTML = '';
         
         if (schedulesData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-5 text-center text-gray-500">No schedules found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-5 text-center text-gray-500">No schedules found</td></tr>';
+            updatePaginationInfo(0, 0, 0);
+            renderPaginationControls(0);
             return;
         }
         
-        schedulesData.forEach(schedule => {
+        const totalItems = schedulesData.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+        
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
+        
+        const paginatedData = schedulesData.slice(startIdx, endIdx);
+        
+        paginatedData.forEach(schedule => {
             const senderName = schedule.sender ? schedule.sender : 'Unknown';
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <input type="checkbox" class="rowCheckbox" value="${schedule.id}" onclick="updateBulkDeleteBtn()">
+                </td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.id}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap font-bold">${senderName}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.phone_number}</p></td>
@@ -230,6 +267,123 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             `;
             tbody.appendChild(tr);
         });
+
+        updatePaginationInfo(startIdx + 1, endIdx, totalItems);
+        renderPaginationControls(totalPages);
+        
+        // Reset select all checkbox state
+        const selectAllCb = document.getElementById('selectAll');
+        if (selectAllCb) selectAllCb.checked = false;
+        updateBulkDeleteBtn();
+    }
+
+    function updatePaginationInfo(start, end, total) {
+        const info = document.getElementById('pagination-info');
+        if (info) {
+            info.innerText = `Showing ${start} to ${end} of ${total} Entries`;
+        }
+    }
+
+    function renderPaginationControls(totalPages) {
+        const controls = document.getElementById('pagination-controls');
+        if (!controls) return;
+        
+        if (totalPages <= 1) {
+            controls.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        
+        // Prev button
+        const prevDisabled = currentPage === 1;
+        html += `<button onclick="changePage(${currentPage - 1})" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-l ${prevDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${prevDisabled ? 'disabled' : ''}>Prev</button>`;
+        
+        // Page numbers (simple version, showing all pages if not too many)
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+        
+        if (startPage > 1) {
+            html += `<button onclick="changePage(1)" class="text-sm bg-white hover:bg-gray-100 text-gray-800 font-semibold py-2 px-4 border-t border-b border-l border-gray-200">1</button>`;
+            if (startPage > 2) html += `<span class="text-sm bg-white text-gray-800 font-semibold py-2 px-4 border-t border-b border-l border-gray-200">...</span>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            if (i === currentPage) {
+                html += `<button class="text-sm bg-blue-500 text-white font-semibold py-2 px-4 border border-blue-500">${i}</button>`;
+            } else {
+                html += `<button onclick="changePage(${i})" class="text-sm bg-white hover:bg-gray-100 text-gray-800 font-semibold py-2 px-4 border-t border-b border-l border-gray-200">${i}</button>`;
+            }
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += `<span class="text-sm bg-white text-gray-800 font-semibold py-2 px-4 border-t border-b border-l border-gray-200">...</span>`;
+            html += `<button onclick="changePage(${totalPages})" class="text-sm bg-white hover:bg-gray-100 text-gray-800 font-semibold py-2 px-4 border-t border-b border-l border-gray-200">${totalPages}</button>`;
+        }
+        
+        // Next button
+        const nextDisabled = currentPage === totalPages;
+        html += `<button onclick="changePage(${currentPage + 1})" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 border border-gray-200 rounded-r ${nextDisabled ? 'opacity-50 cursor-not-allowed' : ''}" ${nextDisabled ? 'disabled' : ''}>Next</button>`;
+        
+        controls.innerHTML = html;
+    }
+
+    function changePage(page) {
+        currentPage = page;
+        renderTable();
+    }
+
+    function toggleSelectAll() {
+        const selectAllCb = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.rowCheckbox');
+        checkboxes.forEach(cb => cb.checked = selectAllCb.checked);
+        updateBulkDeleteBtn();
+    }
+
+    function updateBulkDeleteBtn() {
+        const checkedCount = document.querySelectorAll('.rowCheckbox:checked').length;
+        const btn = document.getElementById('bulkDeleteBtn');
+        if (checkedCount > 0) {
+            btn.classList.remove('hidden');
+        } else {
+            btn.classList.add('hidden');
+        }
+        
+        // Update select all checkbox state
+        const selectAllCb = document.getElementById('selectAll');
+        const totalCheckboxes = document.querySelectorAll('.rowCheckbox').length;
+        if (selectAllCb && totalCheckboxes > 0) {
+            selectAllCb.checked = (checkedCount === totalCheckboxes);
+        }
+    }
+
+    async function deleteSelected() {
+        const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (ids.length === 0) return;
+        
+        if (!confirm(`Are you sure you want to delete ${ids.length} schedules?`)) return;
+        
+        const btn = document.getElementById('bulkDeleteBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Deleting...';
+        btn.disabled = true;
+        
+        try {
+            await Promise.all(ids.map(id => fetch('api/schedules.php', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            })));
+            loadSchedules();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete some schedules');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
     }
 
     // Modal handling
