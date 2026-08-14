@@ -42,7 +42,9 @@ foreach ($schedules as $schedule) {
     $fields = array(
         'to' => $device_token,
         'data' => array(
-            'schedule_id' => (string) $schedule['id']
+            'schedule_id' => (string) $schedule['id'],
+            'phone' => $schedule['phone_number'],
+            'message' => $schedule['message']
         )
     );
 
