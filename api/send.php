@@ -32,8 +32,11 @@ if (!$apiKey) {
     exit;
 }
 
-$valid_keys = require '../config/api_keys.php';
-if (!in_array($apiKey, $valid_keys)) {
+$stmt = $pdo->prepare("SELECT id FROM api_users WHERE api_key = :api_key");
+$stmt->execute(['api_key' => $apiKey]);
+$user = $stmt->fetch();
+
+if (!$user) {
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Invalid API Key']);
     exit;
