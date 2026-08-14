@@ -19,18 +19,70 @@ if (!file_exists($fcm_file)) {
 }
 
 $fcm_config = json_decode(file_get_contents($fcm_file), true);
-$server_key = $fcm_config['server_key'] ?? '';
 $device_token = $fcm_config['device_token'] ?? '';
 
-if (empty($server_key) || empty($device_token)) {
-    write_log("FCM Server Key or Device Token is not set in Settings.");
+if (empty($device_token)) {
+    write_log("Device Token is not set in Settings.");
+    exit;
+}
+
+// FCM v1 requires a service account
+$service_account_path = __DIR__ . '/config/service-account.json';
+if (!file_exists($service_account_path)) {
+    write_log("service-account.json not found in config directory.");
+    exit;
+}
+
+function base64UrlEncode($text) {
+    return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($text));
+}
+
+function getFcmAccessToken($path) {
+    $json = file_get_contents($path);
+    $keyInfo = json_decode($json, true);
+    if (!isset($keyInfo['private_key'])) return false;
+
+    $header = json_encode(['alg' => 'RS256', 'typ' => 'JWT']);
+    $now = time();
+    $claim = json_encode([
+        'iss' => $keyInfo['client_email'],
+        'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
+        'aud' => $keyInfo['token_uri'],
+        'exp' => $now + 3600,
+        'iat' => $now
+    ]);
+
+    $signatureInput = base64UrlEncode($header) . '.' . base64UrlEncode($claim);
+    $signature = '';
+    openssl_sign($signatureInput, $signature, $keyInfo['private_key'], 'SHA256');
+    $jwt = $signatureInput . '.' . base64UrlEncode($signature);
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $keyInfo['token_uri']);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+        'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        'assertion' => $jwt
+    ]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    $data = json_decode($response, true);
+    return [
+        'access_token' => $data['access_token'] ?? null,
+        'project_id' => $keyInfo['project_id'] ?? null
+    ];
+}
+
+$tokenInfo = getFcmAccessToken($service_account_path);
+if (!$tokenInfo || !$tokenInfo['access_token']) {
+    write_log("Failed to generate FCM Access Token from service account.");
     exit;
 }
 
 // Get pending schedules where time has passed
-// SQLite uses string comparison for dates, so date('Y-m-d\TH:i') format works
 $now = date('Y-m-d\TH:i');
-
 $stmt = $pdo->prepare("SELECT * FROM schedules WHERE status = 'PENDING' AND scheduled_time <= :now");
 $stmt->execute(['now' => $now]);
 $schedules = $stmt->fetchAll();
@@ -40,11 +92,9 @@ if (empty($schedules)) {
     exit;
 }
 
-// FCM V1 API is more complex (requires OAuth2), so we're using the Legacy HTTP API here.
-// IMPORTANT: The Firebase Server Key (Legacy) from Firebase Console > Cloud Messaging is required.
-$url = 'https://fcm.googleapis.com/fcm/send';
+$url = 'https://fcm.googleapis.com/v1/projects/' . $tokenInfo['project_id'] . '/messages:send';
 $headers = array(
-    'Authorization: key=' . $server_key,
+    'Authorization: Bearer ' . $tokenInfo['access_token'],
     'Content-Type: application/json'
 );
 
@@ -52,12 +102,13 @@ $success_count = 0;
 
 foreach ($schedules as $schedule) {
     $fields = array(
-        'to' => $device_token,
-        'priority' => 'high',
-        'data' => array(
-            'schedule_id' => (string) $schedule['id'],
-            'phone' => $schedule['phone_number'],
-            'message' => $schedule['message']
+        'message' => array(
+            'token' => $device_token,
+            'data' => array(
+                'schedule_id' => (string) $schedule['id'],
+                'phone' => $schedule['phone_number'],
+                'message' => $schedule['message']
+            )
         )
     );
 
@@ -74,7 +125,6 @@ foreach ($schedules as $schedule) {
     curl_close($ch);
 
     if ($result !== FALSE && $http_code == 200) {
-        // Mark as PROCESSING so we don't trigger it again
         $updateStmt = $pdo->prepare("UPDATE schedules SET status = 'PROCESSING' WHERE id = :id");
         $updateStmt->execute(['id' => $schedule['id']]);
         $success_count++;
