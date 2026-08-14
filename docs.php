@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WA Scheduler API Documentation</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
     <style>
         body { background-color: #f8f9fa; }
@@ -22,7 +23,17 @@
     <h1 class="mb-2">WA Scheduler API Documentation</h1>
     <p class="text-muted mb-4">Gunakan API ini untuk mengirim jadwal pesan WhatsApp langsung dari aplikasi atau website Anda.</p>
 
-    <div class="card">
+    <!-- INFO BOX TENTANG PENGIRIMAN -->
+    <div class="alert alert-info d-flex align-items-center" role="alert">
+        <div>
+            <h4 class="alert-heading"><i class="fas fa-info-circle"></i> Informasi Penting Pengiriman</h4>
+            <hr>
+            <p class="mb-0">Perlu diketahui bahwa <strong>semua pesan yang dijadwalkan melalui API ini akan dikirimkan menggunakan Nomor WhatsApp Admin</strong> (nomor HP di mana aplikasi Android WA Scheduler terinstal).</p>
+            <p class="mt-2 mb-0">Teman-teman atau klien yang menggunakan API ini hanya menitipkan jadwal pesan. Pengirim asli yang terlihat oleh penerima pesan nantinya adalah nomor Anda (Admin). Pastikan teman yang Anda berikan akses API Key mengerti akan hal ini untuk menghindari kesalahpahaman.</p>
+        </div>
+    </div>
+
+    <div class="card mt-4">
         <div class="card-header text-primary">
             1. Endpoint
         </div>
