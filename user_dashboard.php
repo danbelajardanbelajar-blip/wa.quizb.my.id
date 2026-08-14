@@ -136,6 +136,16 @@ $my_api_key = $user['api_key'] ?? 'N/A';
                     <input type="datetime-local" id="scheduledTime" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" required>
                 </div>
 
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ulangi Pengiriman? (Looping)</label>
+                    <select id="loopInterval" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="">Tidak Ada (Sekali Saja)</option>
+                        <option value="daily">Setiap Hari (Daily)</option>
+                        <option value="weekly">Setiap Minggu (Weekly)</option>
+                        <option value="monthly">Setiap Bulan (Monthly)</option>
+                    </select>
+                </div>
+
                 <div class="mb-4 hidden" id="statusDiv">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select id="scheduleStatus" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
@@ -237,7 +247,7 @@ $my_api_key = $user['api_key'] ?? 'N/A';
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.id}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.phone_number}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap max-w-xs truncate">${schedule.message}</p></td>
-                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.scheduled_time}</p></td>
+                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.scheduled_time} ${schedule.is_loop == 1 ? '<span class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded bg-purple-100 text-purple-800" title="Looping: '+schedule.loop_interval+'"><i class="fas fa-redo text-[10px] mr-1 mt-[2px]"></i> '+schedule.loop_interval+'</span>' : ''}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">${getStatusBadge(schedule.status)}</td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-center">
                     <button onclick="editSchedule(${schedule.id})" class="text-blue-500 hover:text-blue-800 mr-3"><i class="fas fa-edit"></i></button>
@@ -373,6 +383,7 @@ $my_api_key = $user['api_key'] ?? 'N/A';
         document.getElementById('phoneNumber').value = '';
         document.getElementById('messageContent').value = '';
         document.getElementById('scheduledTime').value = '';
+        document.getElementById('loopInterval').value = '';
         document.getElementById('statusDiv').classList.add('hidden');
     }
 
@@ -390,6 +401,7 @@ $my_api_key = $user['api_key'] ?? 'N/A';
         document.getElementById('phoneNumber').value = schedule.phone_number;
         document.getElementById('messageContent').value = schedule.message;
         document.getElementById('scheduledTime').value = formatForInput(schedule.scheduled_time);
+        document.getElementById('loopInterval').value = schedule.is_loop == 1 ? schedule.loop_interval : '';
         
         document.getElementById('statusDiv').classList.remove('hidden');
         document.getElementById('scheduleStatus').value = schedule.status;
@@ -400,10 +412,13 @@ $my_api_key = $user['api_key'] ?? 'N/A';
         e.preventDefault();
         
         const id = document.getElementById('scheduleId').value;
+        const loopVal = document.getElementById('loopInterval').value;
         const payload = {
             phone_number: document.getElementById('phoneNumber').value,
             message: document.getElementById('messageContent').value,
-            scheduled_time: document.getElementById('scheduledTime').value
+            scheduled_time: document.getElementById('scheduledTime').value,
+            is_loop: loopVal ? 1 : 0,
+            loop_interval: loopVal
         };
 
         let method = 'POST';

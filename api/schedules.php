@@ -78,6 +78,8 @@ switch ($method) {
         $phone = $data['phone_number'] ?? '';
         $message = $data['message'] ?? '';
         $time = $data['scheduled_time'] ?? '';
+        $is_loop = isset($data['is_loop']) ? (int)$data['is_loop'] : 0;
+        $loop_interval = $data['loop_interval'] ?? null;
         
         if (empty($phone) || empty($message) || empty($time)) {
             http_response_code(400);
@@ -87,8 +89,8 @@ switch ($method) {
         
         $user_id = $_SESSION['user_id'] ?? 1;
         
-        $stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id) VALUES (:phone, :message, :time, 'PENDING', :user_id)");
-        if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id])) {
+        $stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id, is_loop, loop_interval) VALUES (:phone, :message, :time, 'PENDING', :user_id, :is_loop, :loop_interval)");
+        if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id, 'is_loop' => $is_loop, 'loop_interval' => $loop_interval])) {
             echo json_encode(['status' => 'success', 'message' => 'Schedule created', 'id' => $pdo->lastInsertId()]);
         } else {
             http_response_code(500);
@@ -135,6 +137,16 @@ switch ($method) {
             $fields[] = "status = :status";
             $params['status'] = $data['status'];
         }
+        if (isset($data['is_loop'])) {
+            $fields[] = "is_loop = :is_loop";
+            $params['is_loop'] = (int)$data['is_loop'];
+        }
+        if (isset($data['loop_interval']) && $data['loop_interval'] !== '') {
+            $fields[] = "loop_interval = :loop_interval";
+            $params['loop_interval'] = $data['loop_interval'];
+        } elseif (isset($data['is_loop']) && (int)$data['is_loop'] === 0) {
+            $fields[] = "loop_interval = NULL";
+        }
         
         if (empty($fields)) {
             echo json_encode(['status' => 'success', 'message' => 'No changes made']);
@@ -149,9 +161,34 @@ switch ($method) {
             $params['user_id'] = $_SESSION['user_id'] ?? 0;
         }
         
+        // Fetch existing schedule BEFORE updating to know its old state (crucial for loop check)
+        $stmtCheck = $pdo->prepare("SELECT * FROM schedules WHERE id = :id");
+        $stmtCheck->execute(['id' => $id]);
+        $existingSchedule = $stmtCheck->fetch();
+
         $stmt = $pdo->prepare($query);
         
         if ($stmt->execute($params)) {
+            // Loop Handling: If status changed to COMPLETED and it is a looping schedule
+            if ($existingSchedule && isset($data['status']) && $data['status'] === 'COMPLETED' && $existingSchedule['is_loop'] == 1) {
+                // Calculate next run time based on loop interval
+                $intervalStr = '+1 day'; // Default daily
+                if ($existingSchedule['loop_interval'] === 'weekly') $intervalStr = '+1 week';
+                if ($existingSchedule['loop_interval'] === 'monthly') $intervalStr = '+1 month';
+                
+                $nextTime = date('Y-m-d H:i:s', strtotime($existingSchedule['scheduled_time'] . ' ' . $intervalStr));
+                
+                // Insert clone for next run
+                $stmtClone = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id, is_loop, loop_interval) VALUES (:phone, :message, :time, 'PENDING', :user_id, :is_loop, :loop_interval)");
+                $stmtClone->execute([
+                    'phone' => $existingSchedule['phone_number'],
+                    'message' => $existingSchedule['message'],
+                    'time' => $nextTime,
+                    'user_id' => $existingSchedule['user_id'],
+                    'is_loop' => 1,
+                    'loop_interval' => $existingSchedule['loop_interval']
+                ]);
+            }
             echo json_encode(['status' => 'success', 'message' => 'Schedule updated']);
         } else {
             http_response_code(500);
