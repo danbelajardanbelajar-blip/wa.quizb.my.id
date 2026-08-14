@@ -27,6 +27,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         </div>
         <div class="flex items-center">
             <span class="text-white mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?> (Admin)</span>
+            <a href="docs.php" target="_blank" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-book"></i> API Docs</a>
             <a href="users.php" class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-users"></i> Manage Users</a>
             <button onclick="openSettingsModal()" class="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-cog"></i> Settings</button>
             <a href="logout.php" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm">Logout</a>

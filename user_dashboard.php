@@ -33,6 +33,7 @@ $my_api_key = $user['api_key'] ?? 'N/A';
         </div>
         <div class="flex items-center">
             <span class="text-white mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <a href="docs.php" target="_blank" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-book"></i> API Docs</a>
             <a href="logout.php" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm">Logout</a>
         </div>
     </div>
