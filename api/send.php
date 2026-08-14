@@ -53,6 +53,8 @@ if (!$data) {
 $phone = $data['phone_number'] ?? '';
 $message = $data['message'] ?? '';
 $time = $data['scheduled_time'] ?? '';
+$is_loop = isset($data['is_loop']) ? (int)$data['is_loop'] : 0;
+$loop_interval = $data['loop_interval'] ?? null;
 
 // Basic validation
 if (empty($phone) || empty($message) || empty($time)) {
@@ -61,9 +63,17 @@ if (empty($phone) || empty($message) || empty($time)) {
     exit;
 }
 
+// Validasi loop_interval
+$valid_intervals = ['daily', 'weekly', 'monthly'];
+if ($is_loop === 1 && !in_array($loop_interval, $valid_intervals)) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid loop_interval. Valid options: daily, weekly, monthly']);
+    exit;
+}
+
 // Insert Schedule
-$stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id) VALUES (:phone, :message, :time, 'PENDING', :user_id)");
-if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id])) {
+$stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id, is_loop, loop_interval) VALUES (:phone, :message, :time, 'PENDING', :user_id, :is_loop, :loop_interval)");
+if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id, 'is_loop' => $is_loop, 'loop_interval' => $loop_interval])) {
     echo json_encode([
         'status' => 'success', 
         'message' => 'Schedule successfully created', 

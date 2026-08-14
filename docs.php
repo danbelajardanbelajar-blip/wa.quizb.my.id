@@ -103,6 +103,18 @@
                         <td>Waktu pengiriman dalam format <code>YYYY-MM-DDTHH:MM</code></td>
                         <td>"2026-10-25T15:30"</td>
                     </tr>
+                    <tr>
+                        <td><code>is_loop</code> <span class="badge bg-secondary">Optional</span></td>
+                        <td>Integer</td>
+                        <td>Nilai <code>1</code> jika pesan ingin diulang, <code>0</code> jika tidak. Default: 0.</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td><code>loop_interval</code> <span class="badge bg-secondary">Optional</span></td>
+                        <td>String</td>
+                        <td>Interval pengulangan jika is_loop = 1. Opsi valid: <code>daily</code>, <code>weekly</code>, <code>monthly</code>.</td>
+                        <td>"daily"</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -121,7 +133,9 @@ $url = "https://wa.quizb.my.id/api/send.php";
 $data = [
     "phone_number" => "6281234567890",
     "message" => "Pesan dari API!",
-    "scheduled_time" => date("Y-m-d\TH:i", strtotime("+5 minutes"))
+    "scheduled_time" => date("Y-m-d\TH:i", strtotime("+5 minutes")),
+    "is_loop" => 1,
+    "loop_interval" => "daily"
 ];
 
 $ch = curl_init($url);
@@ -143,7 +157,9 @@ echo $response;
             <pre><code class="language-javascript">const data = {
     phone_number: "6281234567890",
     message: "Pesan dari API!",
-    scheduled_time: "2026-10-25T15:30"
+    scheduled_time: "2026-10-25T15:30",
+    is_loop: 1,
+    loop_interval: "daily"
 };
 
 fetch('https://wa.quizb.my.id/api/send.php', {
@@ -165,7 +181,9 @@ fetch('https://wa.quizb.my.id/api/send.php', {
 -d '{
     "phone_number": "6281234567890",
     "message": "Pesan dari API!",
-    "scheduled_time": "2026-10-25T15:30"
+    "scheduled_time": "2026-10-25T15:30",
+    "is_loop": 1,
+    "loop_interval": "daily"
 }'</code></pre>
 
         </div>
