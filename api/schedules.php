@@ -102,6 +102,8 @@ switch ($method) {
         if (isset($_GET['status']) && !isset($data['status'])) {
             $data['status'] = $_GET['status'];
         }
+        
+        if (!$id) {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'ID is required']);
             exit;
