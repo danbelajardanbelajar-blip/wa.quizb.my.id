@@ -81,7 +81,7 @@ switch ($method) {
         
         $user_id = $_SESSION['user_id'] ?? 1;
         
-        $stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, user_id) VALUES (:phone, :message, :time, :user_id)");
+        $stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id) VALUES (:phone, :message, :time, 'PENDING', :user_id)");
         if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id])) {
             echo json_encode(['status' => 'success', 'message' => 'Schedule created', 'id' => $pdo->lastInsertId()]);
         } else {
