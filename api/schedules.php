@@ -93,9 +93,15 @@ switch ($method) {
     case 'PUT':
         // Update schedule (edit or change status)
         $data = json_decode(file_get_contents('php://input'), true);
-        $id = $data['id'] ?? null;
+        if (!$data) {
+            $data = $_POST; // Fallback to form data
+        }
+        $id = $data['id'] ?? $_GET['id'] ?? null;
         
-        if (!$id) {
+        // Also support status from $_GET for compatibility
+        if (isset($_GET['status']) && !isset($data['status'])) {
+            $data['status'] = $_GET['status'];
+        }
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'ID is required']);
             exit;
