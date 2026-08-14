@@ -6,9 +6,9 @@ require 'config/db.php';
 
 try {
     $sql = "CREATE TABLE IF NOT EXISTS api_users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        api_key TEXT NOT NULL UNIQUE,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL,
+        api_key VARCHAR(255) NOT NULL UNIQUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )";
     
