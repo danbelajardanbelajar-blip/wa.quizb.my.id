@@ -41,6 +41,7 @@ $success_count = 0;
 foreach ($schedules as $schedule) {
     $fields = array(
         'to' => $device_token,
+        'priority' => 'high',
         'data' => array(
             'schedule_id' => (string) $schedule['id'],
             'phone' => $schedule['phone_number'],
