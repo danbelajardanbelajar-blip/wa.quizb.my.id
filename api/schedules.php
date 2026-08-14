@@ -4,8 +4,13 @@ require '../config/db.php';
 
 header('Content-Type: application/json');
 
+// Global flags for auth
+$isApk = false;
+
 // Helper to check authentication
 function isAuthenticated() {
+    global $isApk;
+    
     // Check API token from header for APK
     $headers = apache_request_headers();
     $authHeader = $headers['Authorization'] ?? '';
@@ -13,6 +18,7 @@ function isAuthenticated() {
     if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
         $token = $matches[1];
         if ($token === 'SECRET_TOKEN_123') {
+            $isApk = true;
             return true;
         }
     }
@@ -40,7 +46,7 @@ switch ($method) {
         $role = $_SESSION['role'] ?? 'user';
         $user_id = $_SESSION['user_id'] ?? 1;
 
-        if ($role === 'admin') {
+        if ($isApk || $role === 'admin') {
             // Admin sees all schedules, join with users to get username
             if ($status) {
                 $stmt = $pdo->prepare("SELECT s.*, u.username as sender FROM schedules s LEFT JOIN users u ON s.user_id = u.id WHERE s.status = :status ORDER BY s.scheduled_time ASC");
@@ -137,10 +143,10 @@ switch ($method) {
         
         $query = "UPDATE schedules SET " . implode(', ', $fields) . " WHERE id = :id";
         
-        // Ensure user owns schedule if not admin
-        if (($_SESSION['role'] ?? 'user') !== 'admin') {
+        // Ensure user owns schedule if not admin or APK
+        if (!$isApk && ($_SESSION['role'] ?? 'user') !== 'admin') {
             $query .= " AND user_id = :user_id";
-            $params['user_id'] = $_SESSION['user_id'];
+            $params['user_id'] = $_SESSION['user_id'] ?? 0;
         }
         
         $stmt = $pdo->prepare($query);
@@ -165,12 +171,12 @@ switch ($method) {
             exit;
         }
         
-        if (($_SESSION['role'] ?? 'user') === 'admin') {
+        if ($isApk || ($_SESSION['role'] ?? 'user') === 'admin') {
             $stmt = $pdo->prepare("DELETE FROM schedules WHERE id = :id");
             $res = $stmt->execute(['id' => $id]);
         } else {
             $stmt = $pdo->prepare("DELETE FROM schedules WHERE id = :id AND user_id = :user_id");
-            $res = $stmt->execute(['id' => $id, 'user_id' => $_SESSION['user_id']]);
+            $res = $stmt->execute(['id' => $id, 'user_id' => $_SESSION['user_id'] ?? 0]);
         }
         
         if ($res) {
