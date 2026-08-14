@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($_SESSION['csrf_token'], $csrf_token)) {
         $error = 'Invalid CSRF token.';
     } else {
-        $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE username = :username LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id, username, password, role FROM users WHERE username = :username LIMIT 1");
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch();
 
@@ -26,11 +26,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Login success
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'] ?? 'user';
             
             // Regenerate session ID for security
             session_regenerate_id(true);
             
-            header('Location: index.php');
+            if ($_SESSION['role'] === 'admin') {
+                header('Location: index.php');
+            } else {
+                header('Location: user_dashboard.php');
+            }
             exit;
         } else {
             $error = 'Invalid username or password.';

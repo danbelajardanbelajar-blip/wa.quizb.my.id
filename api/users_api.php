@@ -18,10 +18,17 @@ function generateApiKey() {
     return 'wa-key-' . bin2hex(random_bytes(16));
 }
 
+// Only admin can access this API
+if (($_SESSION['role'] ?? '') !== 'admin') {
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => 'Forbidden']);
+    exit;
+}
+
 switch ($method) {
     case 'GET':
-        // Fetch all users
-        $stmt = $pdo->query("SELECT * FROM api_users ORDER BY id DESC");
+        // Fetch all users except admin
+        $stmt = $pdo->query("SELECT id, username, api_key, role FROM users WHERE role = 'user' ORDER BY id DESC");
         $users = $stmt->fetchAll();
         echo json_encode(['status' => 'success', 'data' => $users]);
         break;
@@ -32,21 +39,23 @@ switch ($method) {
         if (!$data) $data = $_POST;
         
         $username = $data['username'] ?? '';
+        $password = $data['password'] ?? '';
         
-        if (empty($username)) {
+        if (empty($username) || empty($password)) {
             http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Username is required']);
+            echo json_encode(['status' => 'error', 'message' => 'Username and Password are required']);
             exit;
         }
         
         $apiKey = generateApiKey();
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         
-        $stmt = $pdo->prepare("INSERT INTO api_users (username, api_key) VALUES (:username, :api_key)");
-        if ($stmt->execute(['username' => $username, 'api_key' => $apiKey])) {
+        $stmt = $pdo->prepare("INSERT INTO users (username, password, api_key, role) VALUES (:username, :password, :api_key, 'user')");
+        if ($stmt->execute(['username' => $username, 'password' => $hashedPassword, 'api_key' => $apiKey])) {
             echo json_encode(['status' => 'success', 'message' => 'User created']);
         } else {
             http_response_code(500);
-            echo json_encode(['status' => 'error', 'message' => 'Failed to create user']);
+            echo json_encode(['status' => 'error', 'message' => 'Failed to create user (might be duplicate)']);
         }
         break;
 
@@ -55,13 +64,16 @@ switch ($method) {
         $data = json_decode(file_get_contents('php://input'), true);
         $id = $data['id'] ?? $_GET['id'] ?? null;
         
-        if (!$id) {
+        if (!$id || $id == 1) { // Prevent deleting admin
             http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'ID is required']);
+            echo json_encode(['status' => 'error', 'message' => 'Invalid ID']);
             exit;
         }
         
-        $stmt = $pdo->prepare("DELETE FROM api_users WHERE id = :id");
+        // Also delete their schedules
+        $pdo->prepare("DELETE FROM schedules WHERE user_id = :id")->execute(['id' => $id]);
+        
+        $stmt = $pdo->prepare("DELETE FROM users WHERE id = :id AND role = 'user'");
         if ($stmt->execute(['id' => $id])) {
             echo json_encode(['status' => 'success', 'message' => 'User deleted']);
         } else {

@@ -1,13 +1,19 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'user') {
     if (isset($_SESSION['user_id'])) {
-        header('Location: user_dashboard.php');
+        header('Location: index.php');
     } else {
         header('Location: login.php');
     }
     exit;
 }
+
+require 'config/db.php';
+$stmt = $pdo->prepare("SELECT api_key FROM users WHERE id = :id");
+$stmt->execute(['id' => $_SESSION['user_id']]);
+$user = $stmt->fetch();
+$my_api_key = $user['api_key'] ?? 'N/A';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -26,9 +32,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             <i class="fab fa-whatsapp mr-2"></i> WA Scheduler Web
         </div>
         <div class="flex items-center">
-            <span class="text-white mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?> (Admin)</span>
-            <a href="users.php" class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-users"></i> Manage Users</a>
-            <button onclick="openSettingsModal()" class="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded text-sm mr-2"><i class="fas fa-cog"></i> Settings</button>
+            <span class="text-white mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></span>
             <a href="logout.php" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm">Logout</a>
         </div>
     </div>
@@ -40,6 +44,14 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         <button onclick="openModal()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
             <i class="fas fa-plus mr-1"></i> Add Schedule
         </button>
+    </div>
+
+    <!-- API Key Display -->
+    <div class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 mb-8 rounded shadow-sm" role="alert">
+        <p class="font-bold">Your API Key</p>
+        <p>Gunakan key ini untuk mengirim pesan via API: 
+            <code class="bg-indigo-200 px-2 py-1 rounded ml-2 font-mono"><?php echo htmlspecialchars($my_api_key); ?></code>
+        </p>
     </div>
 
     <!-- Stats -->
@@ -68,7 +80,6 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             <thead>
                 <tr>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sender</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Message</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Scheduled Time</th>
@@ -77,7 +88,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
                 </tr>
             </thead>
             <tbody id="schedules-tbody">
-                <tr><td colspan="7" class="px-5 py-5 text-center text-gray-500">Loading...</td></tr>
+                <tr><td colspan="6" class="px-5 py-5 text-center text-gray-500">Loading...</td></tr>
             </tbody>
         </table>
     </div>
@@ -120,35 +131,6 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
                         Save
                     </button>
                     <button type="button" onclick="closeModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- FCM Settings Modal -->
-<div id="settingsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">FCM Configuration</h3>
-            <form id="settingsForm" onsubmit="saveSettings(event)">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Firebase Server Key</label>
-                    <textarea id="fcmServerKey" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" rows="3" placeholder="AAAA..." required></textarea>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Android Device Token</label>
-                    <textarea id="fcmDeviceToken" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" rows="3" placeholder="c8xK..." required></textarea>
-                </div>
-                
-                <div class="items-center px-4 py-3 sm:flex sm:flex-row-reverse">
-                    <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
-                        Save
-                    </button>
-                    <button type="button" onclick="closeSettingsModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                         Cancel
                     </button>
                 </div>
@@ -208,16 +190,14 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         tbody.innerHTML = '';
         
         if (schedulesData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-5 text-center text-gray-500">No schedules found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-5 py-5 text-center text-gray-500">No schedules found</td></tr>';
             return;
         }
         
         schedulesData.forEach(schedule => {
-            const senderName = schedule.sender ? schedule.sender : 'Unknown';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.id}</p></td>
-                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap font-bold">${senderName}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.phone_number}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap max-w-xs truncate">${schedule.message}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${schedule.scheduled_time}</p></td>
@@ -324,51 +304,6 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
     // Initialize
     loadSchedules();
 
-    // Settings handling
-    function openSettingsModal() {
-        document.getElementById('settingsModal').classList.remove('hidden');
-        loadSettings();
-    }
-
-    function closeSettingsModal() {
-        document.getElementById('settingsModal').classList.add('hidden');
-    }
-
-    async function loadSettings() {
-        try {
-            const res = await fetch('api/fcm_settings.php');
-            const data = await res.json();
-            if (data.status === 'success') {
-                document.getElementById('fcmServerKey').value = data.data.server_key;
-                document.getElementById('fcmDeviceToken').value = data.data.device_token;
-            }
-        } catch (e) { console.error(e); }
-    }
-
-    async function saveSettings(e) {
-        e.preventDefault();
-        const payload = {
-            server_key: document.getElementById('fcmServerKey').value,
-            device_token: document.getElementById('fcmDeviceToken').value
-        };
-        try {
-            const res = await fetch('api/fcm_settings.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                alert('Settings saved successfully!');
-                closeSettingsModal();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Request failed');
-        }
-    }
 </script>
 
 </body>

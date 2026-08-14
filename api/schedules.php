@@ -35,13 +35,28 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // Fetch schedules
         $status = $_GET['status'] ?? null;
-        if ($status) {
-            $stmt = $pdo->prepare("SELECT * FROM schedules WHERE status = :status ORDER BY scheduled_time ASC");
-            $stmt->execute(['status' => $status]);
+        
+        $role = $_SESSION['role'] ?? 'user';
+        $user_id = $_SESSION['user_id'] ?? 1;
+
+        if ($role === 'admin') {
+            // Admin sees all schedules, join with users to get username
+            if ($status) {
+                $stmt = $pdo->prepare("SELECT s.*, u.username as sender FROM schedules s LEFT JOIN users u ON s.user_id = u.id WHERE s.status = :status ORDER BY s.scheduled_time ASC");
+                $stmt->execute(['status' => $status]);
+            } else {
+                $stmt = $pdo->query("SELECT s.*, u.username as sender FROM schedules s LEFT JOIN users u ON s.user_id = u.id ORDER BY s.scheduled_time DESC");
+            }
         } else {
-            $stmt = $pdo->query("SELECT * FROM schedules ORDER BY scheduled_time DESC");
+            // User sees only their own
+            if ($status) {
+                $stmt = $pdo->prepare("SELECT * FROM schedules WHERE status = :status AND user_id = :user_id ORDER BY scheduled_time ASC");
+                $stmt->execute(['status' => $status, 'user_id' => $user_id]);
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM schedules WHERE user_id = :user_id ORDER BY scheduled_time DESC");
+                $stmt->execute(['user_id' => $user_id]);
+            }
         }
         $schedules = $stmt->fetchAll();
         echo json_encode(['status' => 'success', 'data' => $schedules]);
@@ -64,8 +79,10 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time) VALUES (:phone, :message, :time)");
-        if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time])) {
+        $user_id = $_SESSION['user_id'] ?? 1;
+        
+        $stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, user_id) VALUES (:phone, :message, :time, :user_id)");
+        if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id])) {
             echo json_encode(['status' => 'success', 'message' => 'Schedule created', 'id' => $pdo->lastInsertId()]);
         } else {
             http_response_code(500);
@@ -111,6 +128,13 @@ switch ($method) {
         }
         
         $query = "UPDATE schedules SET " . implode(', ', $fields) . " WHERE id = :id";
+        
+        // Ensure user owns schedule if not admin
+        if (($_SESSION['role'] ?? 'user') !== 'admin') {
+            $query .= " AND user_id = :user_id";
+            $params['user_id'] = $_SESSION['user_id'];
+        }
+        
         $stmt = $pdo->prepare($query);
         
         if ($stmt->execute($params)) {
@@ -133,8 +157,15 @@ switch ($method) {
             exit;
         }
         
-        $stmt = $pdo->prepare("DELETE FROM schedules WHERE id = :id");
-        if ($stmt->execute(['id' => $id])) {
+        if (($_SESSION['role'] ?? 'user') === 'admin') {
+            $stmt = $pdo->prepare("DELETE FROM schedules WHERE id = :id");
+            $res = $stmt->execute(['id' => $id]);
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM schedules WHERE id = :id AND user_id = :user_id");
+            $res = $stmt->execute(['id' => $id, 'user_id' => $_SESSION['user_id']]);
+        }
+        
+        if ($res) {
             echo json_encode(['status' => 'success', 'message' => 'Schedule deleted']);
         } else {
             http_response_code(500);

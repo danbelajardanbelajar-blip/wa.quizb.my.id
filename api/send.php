@@ -32,7 +32,7 @@ if (!$apiKey) {
     exit;
 }
 
-$stmt = $pdo->prepare("SELECT id FROM api_users WHERE api_key = :api_key");
+$stmt = $pdo->prepare("SELECT id FROM users WHERE api_key = :api_key");
 $stmt->execute(['api_key' => $apiKey]);
 $user = $stmt->fetch();
 
@@ -41,6 +41,8 @@ if (!$user) {
     echo json_encode(['status' => 'error', 'message' => 'Invalid API Key']);
     exit;
 }
+
+$user_id = $user['id'];
 
 // Parse Input
 $data = json_decode(file_get_contents('php://input'), true);
@@ -60,8 +62,8 @@ if (empty($phone) || empty($message) || empty($time)) {
 }
 
 // Insert Schedule
-$stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status) VALUES (:phone, :message, :time, 'PENDING')");
-if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time])) {
+$stmt = $pdo->prepare("INSERT INTO schedules (phone_number, message, scheduled_time, status, user_id) VALUES (:phone, :message, :time, 'PENDING', :user_id)");
+if ($stmt->execute(['phone' => $phone, 'message' => $message, 'time' => $time, 'user_id' => $user_id])) {
     echo json_encode([
         'status' => 'success', 
         'message' => 'Schedule successfully created', 

@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     header('Location: login.php');
     exit;
 }
@@ -45,7 +45,6 @@ if (!isset($_SESSION['user_id'])) {
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Username</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">API Key</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created At</th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -65,6 +64,10 @@ if (!isset($_SESSION['user_id'])) {
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Username (Teman Anda)</label>
                     <input type="text" id="usernameInput" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Contoh: Budi" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="passwordInput" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Password untuk login web" required>
                     <p class="text-xs text-gray-500 mt-1">API Key akan di-generate secara otomatis.</p>
                 </div>
                 
@@ -121,7 +124,6 @@ if (!isset($_SESSION['user_id'])) {
                         <button onclick="copyToClipboard('${user.api_key}')" class="text-gray-500 hover:text-gray-700" title="Copy"><i class="fas fa-copy"></i></button>
                     </div>
                 </td>
-                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap">${user.created_at}</p></td>
                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-center">
                     <button onclick="deleteUser(${user.id})" class="text-red-500 hover:text-red-800" title="Delete User"><i class="fas fa-trash"></i></button>
                 </td>
@@ -141,6 +143,7 @@ if (!isset($_SESSION['user_id'])) {
     function openUserModal() {
         document.getElementById('userModal').classList.remove('hidden');
         document.getElementById('usernameInput').value = '';
+        document.getElementById('passwordInput').value = '';
     }
 
     function closeUserModal() {
@@ -151,7 +154,8 @@ if (!isset($_SESSION['user_id'])) {
         e.preventDefault();
         
         const payload = {
-            username: document.getElementById('usernameInput').value
+            username: document.getElementById('usernameInput').value,
+            password: document.getElementById('passwordInput').value
         };
 
         try {
