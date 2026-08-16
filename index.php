@@ -68,6 +68,36 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         </div>
     </div>
 
+    <!-- Filters & Search -->
+    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+        <div class="flex items-center gap-2">
+            <label class="text-sm font-medium text-gray-700">Show</label>
+            <select id="itemsPerPageSelect" onchange="changeItemsPerPage(this.value)" class="border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">All</option>
+            </select>
+            <label class="text-sm font-medium text-gray-700">entries</label>
+        </div>
+        <div class="flex items-center gap-4 w-full md:w-auto">
+            <select id="statusFilter" onchange="changeFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
+                <option value="ALL">All Status</option>
+                <option value="PENDING">PENDING</option>
+                <option value="PROCESSING">PROCESSING</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="FAILED">FAILED</option>
+            </select>
+            <div class="relative w-full md:w-64">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input type="text" id="searchInput" onkeyup="handleSearch(this.value)" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2" placeholder="Search...">
+            </div>
+        </div>
+    </div>
+
     <!-- Table -->
     <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full leading-normal">
@@ -76,12 +106,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-10">
                         <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
                     </th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sender</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Message</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Scheduled Time</th>
-                    <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                    <th onclick="sortBy('id')" class="cursor-pointer px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200">ID <i class="fas fa-sort ml-1 opacity-50"></i></th>
+                    <th onclick="sortBy('sender')" class="cursor-pointer px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200">Sender <i class="fas fa-sort ml-1 opacity-50"></i></th>
+                    <th onclick="sortBy('phone_number')" class="cursor-pointer px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200">Phone <i class="fas fa-sort ml-1 opacity-50"></i></th>
+                    <th onclick="sortBy('message')" class="cursor-pointer px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200">Message <i class="fas fa-sort ml-1 opacity-50"></i></th>
+                    <th onclick="sortBy('scheduled_time')" class="cursor-pointer px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200">Scheduled Time <i class="fas fa-sort ml-1 opacity-50"></i></th>
+                    <th onclick="sortBy('status')" class="cursor-pointer px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-200">Status <i class="fas fa-sort ml-1 opacity-50"></i></th>
                     <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -189,8 +219,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
 
 <script>
     let schedulesData = [];
+    let filteredData = [];
     let currentPage = 1;
     let itemsPerPage = 10;
+    let currentSort = { column: 'id', order: 'desc' };
+    let currentSearch = '';
+    let currentFilter = 'ALL';
 
     // Format date string to local input format
     function formatForInput(dateString) {
@@ -217,7 +251,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             
             if (data.status === 'success') {
                 schedulesData = data.data;
-                renderTable();
+                applyFiltersAndSort();
                 updateStats();
             } else {
                 alert('Failed to load data: ' + data.message);
@@ -235,18 +269,90 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         document.getElementById('stat-failed').innerText = schedulesData.filter(s => s.status === 'FAILED').length;
     }
 
+    function handleSearch(val) {
+        currentSearch = val.toLowerCase();
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
+    function changeFilter(val) {
+        currentFilter = val;
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
+    function changeItemsPerPage(val) {
+        if (val === 'all') {
+            itemsPerPage = 999999;
+        } else {
+            itemsPerPage = parseInt(val, 10);
+        }
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
+    function sortBy(column) {
+        if (currentSort.column === column) {
+            currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.column = column;
+            currentSort.order = 'asc';
+        }
+        applyFiltersAndSort();
+    }
+
+    function applyFiltersAndSort() {
+        let result = [...schedulesData];
+        
+        // Filter Status
+        if (currentFilter !== 'ALL') {
+            result = result.filter(item => item.status === currentFilter);
+        }
+        
+        // Search
+        if (currentSearch) {
+            result = result.filter(item => {
+                return (item.id && item.id.toString().includes(currentSearch)) ||
+                       (item.phone_number && item.phone_number.includes(currentSearch)) ||
+                       (item.message && item.message.toLowerCase().includes(currentSearch)) ||
+                       (item.sender && item.sender.toLowerCase().includes(currentSearch));
+            });
+        }
+        
+        // Sort
+        result.sort((a, b) => {
+            let valA = a[currentSort.column] || '';
+            let valB = b[currentSort.column] || '';
+            
+            if (currentSort.column === 'id') {
+                valA = parseInt(valA, 10);
+                valB = parseInt(valB, 10);
+            } else {
+                valA = valA.toString().toLowerCase();
+                valB = valB.toString().toLowerCase();
+            }
+            
+            if (valA < valB) return currentSort.order === 'asc' ? -1 : 1;
+            if (valA > valB) return currentSort.order === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        filteredData = result;
+        renderTable();
+    }
+
     function renderTable() {
         const tbody = document.getElementById('schedules-tbody');
         tbody.innerHTML = '';
         
-        if (schedulesData.length === 0) {
+        if (filteredData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-5 text-center text-gray-500">No schedules found</td></tr>';
             updatePaginationInfo(0, 0, 0);
             renderPaginationControls(0);
             return;
         }
         
-        const totalItems = schedulesData.length;
+        const totalItems = filteredData.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         
         if (currentPage > totalPages) currentPage = totalPages;
@@ -255,7 +361,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         const startIdx = (currentPage - 1) * itemsPerPage;
         const endIdx = Math.min(startIdx + itemsPerPage, totalItems);
         
-        const paginatedData = schedulesData.slice(startIdx, endIdx);
+        const paginatedData = filteredData.slice(startIdx, endIdx);
         
         paginatedData.forEach(schedule => {
             const senderName = schedule.sender ? schedule.sender : 'Unknown';
