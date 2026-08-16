@@ -82,6 +82,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             <label class="text-sm font-medium text-gray-700">entries</label>
         </div>
         <div class="flex items-center gap-4 w-full md:w-auto">
+            <input type="date" id="dateFilter" onchange="changeDateFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" title="Filter by Date">
             <select id="statusFilter" onchange="changeFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
                 <option value="ALL">All Status</option>
                 <option value="PENDING">PENDING</option>
@@ -225,6 +226,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
     let currentSort = { column: 'id', order: 'desc' };
     let currentSearch = '';
     let currentFilter = 'ALL';
+    let currentDateFilter = '';
 
     // Format date string to local input format
     function formatForInput(dateString) {
@@ -281,6 +283,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         applyFiltersAndSort();
     }
 
+    function changeDateFilter(val) {
+        currentDateFilter = val;
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
     function changeItemsPerPage(val) {
         if (val === 'all') {
             itemsPerPage = 999999;
@@ -303,6 +311,14 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
 
     function applyFiltersAndSort() {
         let result = [...schedulesData];
+        
+        // Filter Date
+        if (currentDateFilter) {
+            result = result.filter(item => {
+                if (!item.scheduled_time) return false;
+                return item.scheduled_time.startsWith(currentDateFilter);
+            });
+        }
         
         // Filter Status
         if (currentFilter !== 'ALL') {
