@@ -104,6 +104,9 @@ foreach ($schedules as $schedule) {
     $fields = array(
         'message' => array(
             'token' => $device_token,
+            'android' => array(
+                'priority' => 'high'
+            ),
             'data' => array(
                 'schedule_id' => (string) $schedule['id'],
                 'phone' => $schedule['phone_number'],
