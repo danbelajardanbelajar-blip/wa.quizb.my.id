@@ -95,6 +95,13 @@ $my_api_key = $user['api_key'] ?? 'N/A';
         </div>
         <div class="flex items-center gap-4 w-full md:w-auto">
             <input type="date" id="dateFilter" onchange="changeDateFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" title="Filter by Date">
+            <select id="loopFilter" onchange="changeLoopFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" title="Filter by Loop">
+                <option value="ALL">All Loops</option>
+                <option value="NONE">No Loop</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
             <select id="statusFilter" onchange="changeFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
                 <option value="ALL">All Status</option>
                 <option value="PENDING">PENDING</option>
@@ -208,6 +215,7 @@ $my_api_key = $user['api_key'] ?? 'N/A';
     let currentSearch = '';
     let currentFilter = 'ALL';
     let currentDateFilter = '';
+    let currentLoopFilter = 'ALL';
 
     // Format date string to local input format
     function formatForInput(dateString) {
@@ -270,6 +278,12 @@ $my_api_key = $user['api_key'] ?? 'N/A';
         applyFiltersAndSort();
     }
 
+    function changeLoopFilter(val) {
+        currentLoopFilter = val;
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
     function changeItemsPerPage(val) {
         if (val === 'all') {
             itemsPerPage = 999999;
@@ -293,6 +307,15 @@ $my_api_key = $user['api_key'] ?? 'N/A';
     function applyFiltersAndSort() {
         let result = [...schedulesData];
         
+        // Filter Loop
+        if (currentLoopFilter !== 'ALL') {
+            if (currentLoopFilter === 'NONE') {
+                result = result.filter(item => !item.is_loop || item.is_loop == 0 || !item.loop_interval);
+            } else {
+                result = result.filter(item => item.is_loop == 1 && item.loop_interval === currentLoopFilter);
+            }
+        }
+
         // Filter Date
         if (currentDateFilter) {
             result = result.filter(item => {

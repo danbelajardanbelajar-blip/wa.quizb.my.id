@@ -82,7 +82,17 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             <label class="text-sm font-medium text-gray-700">entries</label>
         </div>
         <div class="flex items-center gap-4 w-full md:w-auto">
+            <select id="senderFilter" onchange="changeSenderFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" title="Filter by Sender">
+                <option value="ALL">All Senders</option>
+            </select>
             <input type="date" id="dateFilter" onchange="changeDateFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" title="Filter by Date">
+            <select id="loopFilter" onchange="changeLoopFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" title="Filter by Loop">
+                <option value="ALL">All Loops</option>
+                <option value="NONE">No Loop</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
             <select id="statusFilter" onchange="changeFilter(this.value)" class="border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white">
                 <option value="ALL">All Status</option>
                 <option value="PENDING">PENDING</option>
@@ -227,6 +237,8 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
     let currentSearch = '';
     let currentFilter = 'ALL';
     let currentDateFilter = '';
+    let currentSenderFilter = 'ALL';
+    let currentLoopFilter = 'ALL';
 
     // Format date string to local input format
     function formatForInput(dateString) {
@@ -253,6 +265,26 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
             
             if (data.status === 'success') {
                 schedulesData = data.data;
+                
+                // Populate Sender dropdown
+                const senders = [...new Set(schedulesData.map(item => item.sender ? item.sender : 'Unknown'))];
+                const senderFilterDropdown = document.getElementById('senderFilter');
+                const existingValue = currentSenderFilter;
+                
+                senderFilterDropdown.innerHTML = '<option value="ALL">All Senders</option>';
+                senders.forEach(sender => {
+                    const option = document.createElement('option');
+                    option.value = sender;
+                    option.text = sender;
+                    senderFilterDropdown.appendChild(option);
+                });
+                
+                if (senders.includes(existingValue)) {
+                    senderFilterDropdown.value = existingValue;
+                } else {
+                    currentSenderFilter = 'ALL';
+                }
+
                 applyFiltersAndSort();
                 updateStats();
             } else {
@@ -289,6 +321,18 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
         applyFiltersAndSort();
     }
 
+    function changeSenderFilter(val) {
+        currentSenderFilter = val;
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
+    function changeLoopFilter(val) {
+        currentLoopFilter = val;
+        currentPage = 1;
+        applyFiltersAndSort();
+    }
+
     function changeItemsPerPage(val) {
         if (val === 'all') {
             itemsPerPage = 999999;
@@ -312,6 +356,23 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? 'user') !== 'admin') {
     function applyFiltersAndSort() {
         let result = [...schedulesData];
         
+        // Filter Sender
+        if (currentSenderFilter !== 'ALL') {
+            result = result.filter(item => {
+                const sName = item.sender ? item.sender : 'Unknown';
+                return sName === currentSenderFilter;
+            });
+        }
+
+        // Filter Loop
+        if (currentLoopFilter !== 'ALL') {
+            if (currentLoopFilter === 'NONE') {
+                result = result.filter(item => !item.is_loop || item.is_loop == 0 || !item.loop_interval);
+            } else {
+                result = result.filter(item => item.is_loop == 1 && item.loop_interval === currentLoopFilter);
+            }
+        }
+
         // Filter Date
         if (currentDateFilter) {
             result = result.filter(item => {
